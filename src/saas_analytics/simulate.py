@@ -13,6 +13,7 @@ BASE_DATE = datetime(2026, 1, 1, 12, tzinfo=timezone.utc)
 USER_FIELDS = [
     "user_id", "signup_at", "signup_month", "variant", "segment",
     "workspace_created", "integration_connected", "teammate_invited",
+    "onboarding_error_d7", "support_ticket_d7",
     "activated_d7", "returned_d28",
 ]
 EVENT_FIELDS = ["event_id", "user_id", "event_at", "event_name"]
@@ -49,6 +50,10 @@ def generate(users=4000, seed=42, output_dir=DATA):
         integration = workspace and rng.random() < integration_probability
         invited = bool(integration and segment == "team" and rng.random() < 0.55)
         activated = bool(workspace and integration)
+        # Simulated negative outcomes create explicit product guardrails.
+        # Treatment is intentionally NOT better on every metric.
+        onboarding_error = rng.random() < (0.10 if variant == "treatment" else 0.08)
+        support_ticket = rng.random() < (0.035 + (0.10 if onboarding_error else 0.0))
         return_probability = (0.54 if variant == "treatment" else 0.49)
         return_probability += 0.09 if activated else -0.09
         return_probability += 0.03 if segment == "team" else 0
@@ -60,6 +65,10 @@ def generate(users=4000, seed=42, output_dir=DATA):
             event(uid, signup + timedelta(hours=9), "integration_connected")
         if invited:
             event(uid, signup + timedelta(days=2), "teammate_invited")
+        if onboarding_error:
+            event(uid, signup + timedelta(hours=5), "onboarding_error")
+        if support_ticket:
+            event(uid, signup + timedelta(days=3), "support_ticket")
         if returned:
             event(uid, signup + timedelta(days=28), "returned_d28")
         user_rows.append({
@@ -71,6 +80,8 @@ def generate(users=4000, seed=42, output_dir=DATA):
             "workspace_created": int(workspace),
             "integration_connected": int(integration),
             "teammate_invited": int(invited),
+            "onboarding_error_d7": int(onboarding_error),
+            "support_ticket_d7": int(support_ticket),
             "activated_d7": int(activated),
             "returned_d28": int(returned),
         })
@@ -92,6 +103,7 @@ def generate(users=4000, seed=42, output_dir=DATA):
             user_id TEXT PRIMARY KEY, signup_at TEXT, signup_month TEXT,
             variant TEXT, segment TEXT, workspace_created INTEGER,
             integration_connected INTEGER, teammate_invited INTEGER,
+            onboarding_error_d7 INTEGER, support_ticket_d7 INTEGER,
             activated_d7 INTEGER, returned_d28 INTEGER
         )""")
         conn.execute("""CREATE TABLE events (
