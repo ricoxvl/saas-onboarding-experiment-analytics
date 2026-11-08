@@ -1,0 +1,5 @@
+# Dashboard and analytics dependencies, compatible with Streamlit Community Cloud
+-e .
+streamlit>=1.38,<2
+plotly>=5.22,<7
+pandas>=2.1,<3
