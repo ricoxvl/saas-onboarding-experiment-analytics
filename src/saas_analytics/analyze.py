@@ -6,6 +6,8 @@ import sqlite3
 from pathlib import Path
 
 from .simulate import DATA, ROOT
+from .quality import audit_database
+from .advanced import analyze_advanced
 
 
 def two_sided_pvalue(z):
@@ -41,6 +43,12 @@ def analyze(database=DATA / "saas.db", reports_dir=ROOT / "reports" / "generated
     reports_dir.mkdir(parents=True, exist_ok=True)
     with sqlite3.connect(database) as conn:
         conn.row_factory = sqlite3.Row
+        quality = audit_database(conn)
+        (reports_dir / "quality_checks.json").write_text(
+            json.dumps(quality, indent=2) + "\n", encoding="utf-8"
+        )
+        if not quality["passed"]:
+            raise ValueError("Data-quality checks failed; inspect reports/generated/quality_checks.json")
         summary = {
             row["variant"]: dict(row)
             for row in conn.execute("""
@@ -57,6 +65,8 @@ def analyze(database=DATA / "saas.db", reports_dir=ROOT / "reports" / "generated
                    SUM(workspace_created) AS workspace_created,
                    SUM(integration_connected) AS integration_connected,
                    SUM(teammate_invited) AS teammate_invited,
+                   SUM(onboarding_error_d7) AS onboarding_error_d7,
+                   SUM(support_ticket_d7) AS support_ticket_d7,
                    SUM(activated_d7) AS activated_d7
             FROM users GROUP BY variant ORDER BY variant
         """)]
@@ -67,6 +77,10 @@ def analyze(database=DATA / "saas.db", reports_dir=ROOT / "reports" / "generated
             FROM users GROUP BY signup_month, variant
             ORDER BY signup_month, variant
         """)]
+        t, c = summary["treatment"], summary["control"]
+        advanced = analyze_advanced(
+            conn, compare_binary, c["retained"] / c["users"], t["users"], c["users"]
+        )
 
     t, c = summary["treatment"], summary["control"]
     n = t["users"] + c["users"]
@@ -80,6 +94,8 @@ def analyze(database=DATA / "saas.db", reports_dir=ROOT / "reports" / "generated
         "primary_metric": "returned_d28",
         "retention_d28": compare_binary(t["retained"], t["users"], c["retained"], c["users"]),
         "activation_d7": compare_binary(t["activated"], t["users"], c["activated"], c["users"]),
+        "data_quality": quality,
+        **advanced,
         "srm": {"expected_allocation": "50/50", "chi_square": round(chi2, 4),
                 "p_value": round(srm_p, 6), "flag_p_below_0_001": srm_p < 0.001},
     }
@@ -92,6 +108,12 @@ def analyze(database=DATA / "saas.db", reports_dir=ROOT / "reports" / "generated
             writer = csv.DictWriter(f, fieldnames=list(rows[0]))
             writer.writeheader()
             writer.writerows(rows)
+    segment_rows = result["exploratory_retention_segments"]["contrasts"]
+    if segment_rows:
+        with (reports_dir / "segments.csv").open("w", newline="", encoding="utf-8") as f:
+            writer = csv.DictWriter(f, fieldnames=list(segment_rows[0]))
+            writer.writeheader()
+            writer.writerows(segment_rows)
     r = result["retention_d28"]
     low, high = r["confidence_interval_95_pp"]
     decision = (
@@ -109,6 +131,18 @@ def analyze(database=DATA / "saas.db", reports_dir=ROOT / "reports" / "generated
 - 95% confidence interval: [{low:+.2f}, {high:+.2f}] percentage points
 - Two-sided p-value: {r['p_value_two_sided']:.4f}
 - SRM p-value: {srm_p:.4f}; flagged at p < 0.001: {result['srm']['flag_p_below_0_001']}
+- Data-quality checks passed: {quality['passed']} across {quality['users_checked']:,} users and {quality['events_checked']:,} events
+- 80%-power planning MDE (approx.): {advanced['planning_sensitivity']['mde_absolute_pp_approx']} percentage points
+
+## Negative-outcome guardrails
+
+- Onboarding error difference: {advanced['guardrails']['onboarding_error_d7']['absolute_lift_pp']:+.2f} pp (positive = worse)
+- Support ticket difference: {advanced['guardrails']['support_ticket_d7']['absolute_lift_pp']:+.2f} pp (positive = worse)
+- A significant primary result alone does **not** establish the treatment is ready to ship; inspect the 95% guardrail bounds and practical risk thresholds.
+
+## Exploratory segmentation
+
+See `segments.csv` for team/solo and signup-month contrasts. Their p-values are adjusted with Benjamini-Hochberg FDR **as one family**, and should not be treated as confirmatory.
 
 ## Interpretation
 
@@ -116,7 +150,7 @@ def analyze(database=DATA / "saas.db", reports_dir=ROOT / "reports" / "generated
 
 ## Caveats
 
-Normal approximation, no adjustment for multiple tests, no production telemetry, and synthetic event generation. Day-28 activity is measured as an event on day 28, not a 28-day cumulative retention window.
+Normal approximation for the primary and guardrails, Benjamini-Hochberg adjustment only for exploratory subgroup comparisons, no production telemetry, and synthetic event generation. Day-28 activity is measured as an event on day 28, not a 28-day cumulative retention window.
 """
     (reports_dir / "summary.md").write_text(report, encoding="utf-8")
     return result
