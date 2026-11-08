@@ -10,7 +10,7 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
-      - run: python -m pip install -e .
+      - run: python -m pip install -r requirements.txt
       - run: python -m unittest discover -s tests -v
       - run: python -m saas_analytics.simulate --users 4000 --seed 42
       - run: python -m saas_analytics.analyze
