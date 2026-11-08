@@ -5,6 +5,7 @@ All data in this UI are generated locally from a fictional model. No customer da
 """
 import csv
 import io
+import sqlite3
 import sys
 from pathlib import Path
 
