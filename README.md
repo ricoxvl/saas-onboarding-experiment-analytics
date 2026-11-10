@@ -40,13 +40,41 @@ We model a self-serve B2B SaaS product where new users sign up, create a workspa
    python -m saas_analytics.analyze
    ~~~
 
-5. Launch the interactive dashboard:\n\n   ~~~bash\n   streamlit run dashboard/app.py\n   ~~~\n\n   The browser opens at **http://localhost:8501**. The dashboard automatically generates a seeded, validated synthetic demo dataset on first launch, including Streamlit Cloud. You do not need to check generated data into Git.\n\n6. Run automated tests:
+5. Launch the interactive dashboard:
+
+   ~~~bash
+   streamlit run dashboard/app.py
+   ~~~
+
+   The browser opens at **http://localhost:8501**. The dashboard automatically generates a seeded, validated synthetic demo dataset on first launch, including Streamlit Cloud. You do not need to check generated data into Git.
+
+6. Run automated tests:
 
    ~~~bash
    python -m unittest discover -s tests -v
    ~~~
 
-## Dashboard views\n\n| View | Interactive capabilities |\n| --- | --- |\n| **Overview** | Signup, activation, D28 retention, onboarding errors, retention chart and user-type breakdown |\n| **Onboarding funnel** | Control vs treatment onboarding conversion, step counts and friction metrics |\n| **Retention & cohorts** | Monthly cohort trends, D7/D28 toggle, exploratory segment effects and BH-adjusted q-values |\n| **Experiment lab** | Live recomputation of effect sizes, confidence intervals, p-values, 50/50 allocation diagnostics, guardrail tolerance sensitivity and sample-size/MDE planning |\n\n**Sidebar controls:** change synthetic seed or user count, filter by pre-treatment user segment and signup cohort(s), or export the selected simulated user records as CSV. All visible comparisons recalculate for the selected population. The guardrail slider is explicitly exploratory; changing it is not a valid pre-registered decision rule. The dashboard uses no external APIs and no real customer information.\n\n## Deploy to Streamlit Community Cloud\n\n1. In Streamlit Community Cloud, choose **New app** and connect this GitHub repository.\n2. Select branch `main` and entry point `dashboard/app.py`.\n3. Requirements are installed from the root `requirements.txt`. No secrets are required.\n4. Share the resulting app link only after confirming the **Synthetic demonstration** warning is visible.\n\nThe app is **not currently hosted** by this repository; GitHub stores the runnable source, not a live Streamlit service.\n\n## Generated outputs
+## Dashboard views
+
+| View | Interactive capabilities |
+| --- | --- |
+| **Overview** | Signup, activation, D28 retention, onboarding errors, retention chart and user-type breakdown |
+| **Onboarding funnel** | Control vs treatment onboarding conversion, step counts and friction metrics |
+| **Retention & cohorts** | Monthly cohort trends, D7/D28 toggle, exploratory segment effects and BH-adjusted q-values |
+| **Experiment lab** | Live recomputation of effect sizes, confidence intervals, p-values, 50/50 allocation diagnostics, guardrail tolerance sensitivity and sample-size/MDE planning |
+
+**Sidebar controls:** change synthetic seed or user count, filter by pre-treatment user segment and signup cohort(s), or export the selected simulated user records as CSV. All visible comparisons recalculate for the selected population. The guardrail slider is explicitly exploratory; changing it is not a valid pre-registered decision rule. The dashboard uses no external APIs and no real customer information.
+
+## Deploy to Streamlit Community Cloud
+
+1. In Streamlit Community Cloud, choose **New app** and connect this GitHub repository.
+2. Select branch `main` and entry point `dashboard/app.py`.
+3. Requirements are installed from the root `requirements.txt`. No secrets are required.
+4. Share the resulting app link only after confirming the **Synthetic demonstration** warning is visible.
+
+The app is **not currently hosted** by this repository; GitHub stores the runnable source, not a live Streamlit service.
+
+## Generated outputs
 
 - `data/generated/users.csv` — user-level experiment assignment, onboarding, activation, retention
 - `data/generated/events.csv` — timestamped user events
